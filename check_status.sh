@@ -5,7 +5,7 @@ echo "Nombre del equipo: "
 echo ""
     
 echo "Direccion IP: "
- ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1'
+ip -4 addr show | grep inet | awk '{print $2}' | cut -d/ -f1 | grep -v '127.0.0.1'
 echo ""
 
 echo "Espacio en el Disco:"
