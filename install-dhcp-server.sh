@@ -1,30 +1,37 @@
-if [ "$EUID" -ne 0 ]; then
-    echo "ERROR: Debes ejecutar como root (sudo $0)"
-    exit 1
-fi
+#!/bin/bash
+
+set -e
+
+echo "=== INSTALANDO DHCP SERVER ==="
+
+sudo dnf install -y kea
+
+IP=$(hostname -I | awk '{print $1}')
+[ -z "$IP" ] && IP="192.168.100.10"
+
+sudo tee /etc/kea/kea-dhcp4.conf > /dev/null << CFG
+{
+"Dhcp4": {
+    "interfaces-config": {"interfaces": ["*"]},
+    "valid-lifetime": 7200,
+    "subnet4": [
+    {
+    "subnet": "192.168.100.0/24",
+    "pools": [{"pool":"192.168.100.50 - 192.168.100.150"}],
+    "option-data": [
+    {"name": "routers", "data": "192.168.100.1"},
+    {"name": "domain-name-servers", "data": "$IP"}
+    ]
+    }
+    ]
+}
+}
+CFG
 
 
-echo "Actualizando sistema..."
-dnf update -y
+sudo kea-dhcp4 -t /etc/kea/kea-dhcp4.conf
 
 
-echo "Instalando ISC DHCP Server..."
-dnf install -y dhcp-server
+sudo systemctl enable --now kea-dhcp4
 
-
-echo "Verificando instalación..."
-rpm -qa | grep dhcp
-dhcpd --version
-echo "Configurando servicio..."
-systemctl enable dhcpd
-systemctl start dhcpd
-
-
-echo "Configurando firewall..."
-firewall-cmd --permanent --add-service=dhcp
-firewall-cmd --permanent --add-service=dhcpv6
-firewall-cmd --reload
-
-
-echo "Verificando estado del servicio..."
-systemctl status dhcpd --no-pager
+sudo firewall-cmd --add-service=dhcp --permanent --reload 2>/dev/null
