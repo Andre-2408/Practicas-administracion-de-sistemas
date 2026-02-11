@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # DHCP Server Manager - Linux (dnsmasq)
 
 
@@ -312,6 +311,113 @@ EOF
 }
 
 
+# MODIFICAR CONFIGURACION
+
+modificar() {
+    echo ""
+    echo "=== Modificar configuracion DHCP ==="
+
+    if [ ! -f /etc/dnsmasq.conf ]; then
+        echo "Error: No hay configuracion existente. Instala primero."
+        read -p "Presiona Enter para volver al menu..." dummy
+        return
+    fi
+
+    # Mostrar config actual
+    echo "Configuracion actual:"
+    cat /etc/dnsmasq.conf | grep -v "^#" | grep -v "^$"
+    echo ""
+
+    # Obtener IP del servidor
+    SERVER_IP=$(ip -4 addr show ens224 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
+    [ -z "$SERVER_IP" ] && SERVER_IP=$(ip -4 addr show | grep -oP '(?<=inet\s)192\.168\.\d+\.\d+' | head -1)
+
+    # Prefijo de subred
+    read -p "Prefijo de subred [24]: " PREFIX
+    PREFIX=${PREFIX:-24}
+    MASK=$(calcular_mascara $PREFIX)
+    echo "Mascara: $MASK"
+
+    # Rango inicial
+    while true; do
+        START=$(pedir_ip "Rango inicial" "192.168.100.50")
+        if ! misma_subred "$START" "$SERVER_IP" "$MASK"; then
+            echo "Error: $START no pertenece al mismo segmento que el servidor ($SERVER_IP)" >&2
+            continue
+        fi
+        if [ $(ip_to_int "$START") -le $(ip_to_int "$SERVER_IP") ]; then
+            echo "Error: el rango inicial debe ser mayor que la IP del servidor ($SERVER_IP)" >&2
+            continue
+        fi
+        break
+    done
+
+    # Rango final
+    while true; do
+        END=$(pedir_ip "Rango final" "192.168.100.150")
+        if ! misma_subred "$END" "$SERVER_IP" "$MASK"; then
+            echo "Error: $END no pertenece al mismo segmento" >&2
+            continue
+        fi
+        if [ $(ip_to_int "$END") -le $(ip_to_int "$START") ]; then
+            echo "Error: el rango final debe ser mayor que el inicial ($START)" >&2
+            continue
+        fi
+        break
+    done
+
+    # Ignorar primera IP (+1)
+    IFS='.' read -r a b c d <<< "$START"
+    START_REAL="$a.$b.$c.$((d + 1))"
+    echo "Nota: Primera IP ignorada. Rango real: $START_REAL - $END"
+
+    # Gateway (opcional)
+    read -p "Gateway (Enter para omitir): " GW
+    if [ -n "$GW" ]; then
+        while ! validar_ip "$GW" 2>/dev/null; do
+            read -p "Gateway invalido. Intenta de nuevo (Enter para omitir): " GW
+            [ -z "$GW" ] && break
+        done
+    fi
+
+    # DNS (opcional)
+    DNS_OPTS=""
+    read -p "¿Configurar DNS? (s/n) [n]: " conf_dns
+    if [[ "$conf_dns" =~ ^[sS]$ ]]; then
+        DNS1=$(pedir_ip "DNS primario" "192.168.100.1")
+        read -p "¿Agregar DNS secundario? (s/n) [n]: " conf_dns2
+        if [[ "$conf_dns2" =~ ^[sS]$ ]]; then
+            DNS2=$(pedir_ip "DNS secundario" "8.8.8.8")
+            DNS_OPTS="dhcp-option=6,$DNS1,$DNS2"
+        else
+            DNS_OPTS="dhcp-option=6,$DNS1"
+        fi
+    fi
+
+    # Escribir nueva configuracion
+    cat > /etc/dnsmasq.conf << EOF
+interface=ens224
+dhcp-range=$START_REAL,$END,$MASK,12h
+dhcp-leasefile=/var/lib/dnsmasq/dnsmasq.leases
+EOF
+
+    [ -n "$GW" ] && echo "dhcp-option=3,$GW" >> /etc/dnsmasq.conf
+    [ -n "$DNS_OPTS" ] && echo "$DNS_OPTS" >> /etc/dnsmasq.conf
+
+    # Reiniciar servicio
+    systemctl restart dnsmasq
+
+    echo ""
+    echo "=== CONFIGURACION ACTUALIZADA ==="
+    echo "Rango:   $START_REAL - $END"
+    echo "Mascara: $MASK"
+    [ -n "$GW" ] && echo "Gateway: $GW"
+    [ -n "$DNS_OPTS" ] && echo "DNS:     $DNS_OPTS"
+
+    read -p "Presiona Enter para volver al menu..." dummy
+}
+
+
 # RESTART
 
 reiniciar() {
@@ -337,18 +443,20 @@ while true; do
     echo "================================"
     echo "1) Verificar instalacion"
     echo "2) Instalar DHCP"
-    echo "3) Monitor"
-    echo "4) Reiniciar servicio"
-    echo "5) Salir"
+    echo "3) Modificar configuracion"
+    echo "4) Monitor"
+    echo "5) Reiniciar servicio"
+    echo "6) Salir"
     echo "--------------------------------"
     read -p "> " opt
 
     case "$opt" in
         1) verificar_instalacion ;;
         2) instalar ;;
-        3) monitor ;;
-        4) reiniciar ;;
-        5) echo "Saliendo..."; exit 0 ;;
+        3) modificar ;;
+        4) monitor ;;
+        5) reiniciar ;;
+        6) echo "Saliendo..."; exit 0 ;;
         *) echo "Opcion invalida"; sleep 1 ;;
     esac
 done
