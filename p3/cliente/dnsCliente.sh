@@ -62,8 +62,7 @@ while true; do
     echo "  2) Configurar IP estatica"
     echo "  3) Configurar servidor DNS"
     echo "  4) Ejecutar pruebas de resolucion"
-    echo "  5) Release / Renew (renovar IP)"
-    echo "  6) Instalar herramientas DNS"
+    echo "  5) Instalar herramientas DNS"
     echo "  0) Salir"
     echo ""
     read -rp "  Opcion: " opc
@@ -352,75 +351,9 @@ while true; do
         ;;
 
 # =========================================================
-# 5) RELEASE / RENEW
+# 5) INSTALAR HERRAMIENTAS
 # =========================================================
     5)
-        clear
-        echo ""
-        echo "  -- RELEASE / RENEW --"
-        echo ""
-
-        actualizar_ip
-        CON=$(nmcli -t -f NAME,DEVICE connection show 2>/dev/null | grep ":${INTERFAZ}$" | cut -d: -f1)
-        MET=$(nmcli -g ipv4.method connection show "$CON" 2>/dev/null)
-
-        msg_info "Interfaz: $INTERFAZ | IP: $IP_CLIENTE | Metodo: $MET"
-        echo ""
-
-        if [[ "$MET" == "auto" ]]; then
-            echo "  1) Release (liberar IP)"
-            echo "  2) Renew (renovar IP)"
-            echo "  3) Release + Renew"
-            echo "  0) Volver"
-            echo ""
-            read -rp "  Opcion: " sub5
-
-            case $sub5 in
-                1)
-                    msg_info "Liberando IP..."
-                    dhclient -r "$INTERFAZ" 2>/dev/null || nmcli device disconnect "$INTERFAZ" 2>/dev/null
-                    sleep 2
-                    msg_ok "IP liberada."
-                    ip -4 addr show "$INTERFAZ" | grep inet | sed 's/^/    /'
-                    ;;
-                2)
-                    msg_info "Renovando IP..."
-                    dhclient "$INTERFAZ" 2>/dev/null || nmcli connection up "$CON" 2>/dev/null
-                    sleep 3
-                    NIP=$(ip -4 addr show "$INTERFAZ" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1 | head -1)
-                    msg_ok "IP renovada: $NIP"
-                    ;;
-                3)
-                    msg_info "Release..."
-                    dhclient -r "$INTERFAZ" 2>/dev/null || nmcli device disconnect "$INTERFAZ" 2>/dev/null
-                    sleep 2
-                    msg_ok "Liberada."
-                    msg_info "Renew..."
-                    dhclient "$INTERFAZ" 2>/dev/null || nmcli connection up "$CON" 2>/dev/null
-                    sleep 3
-                    NIP=$(ip -4 addr show "$INTERFAZ" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1 | head -1)
-                    msg_ok "IP renovada: $NIP"
-                    ;;
-            esac
-        else
-            msg_warn "IP estatica, release/renew solo aplica con DHCP."
-            echo ""
-            read -rp "  Reiniciar la conexion? (s/n): " resp
-            if [[ "$resp" =~ ^[sS]$ ]]; then
-                nmcli connection down "$CON" 2>/dev/null && nmcli connection up "$CON" 2>/dev/null
-                sleep 3
-                NIP=$(ip -4 addr show "$INTERFAZ" 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1 | head -1)
-                msg_ok "Reconectado: $NIP"
-            fi
-        fi
-
-        pausar
-        ;;
-
-# =========================================================
-# 6) INSTALAR HERRAMIENTAS
-# =========================================================
-    6)
         clear
         echo ""
         echo "  -- HERRAMIENTAS DNS --"
@@ -431,7 +364,7 @@ while true; do
             command -v "$cmd" &>/dev/null && msg_ok "$cmd instalado" || { msg_err "$cmd no instalado"; FALTA+=("dnsutils"); }
         done
         command -v ping &>/dev/null && msg_ok "ping instalado" || { msg_err "ping no instalado"; FALTA+=("iputils-ping"); }
-        command -v dhclient &>/dev/null && msg_ok "dhclient instalado" || { msg_warn "dhclient no instalado (opcional)"; FALTA+=("isc-dhcp-client"); }
+        command -v dhclient &>/dev/null && msg_ok "dhclient instalado" || msg_warn "dhclient no instalado (opcional, no se instala por conflicto con Pop!_OS)"
 
         # quitar duplicados
         FALTA=($(echo "${FALTA[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
