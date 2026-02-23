@@ -1,6 +1,6 @@
 #!/bin/bash
-# lib/ssh_functions.sh
-# Depende de: common_functions.sh
+# ssh-functions.sh — Funciones para gestionar SSH en AlmaLinux
+# Depende de: common-functions.sh
 
 SSHD_CONFIG="/etc/ssh/sshd_config"
 
@@ -10,13 +10,13 @@ SSHD_CONFIG="/etc/ssh/sshd_config"
 ssh_verificar() {
     echo ""
     echo "=== Verificando SSH ==="
-    if dpkg -l | grep -qw openssh-server; then
-        msg_ok "openssh-server instalado: $(dpkg -l openssh-server | awk '/openssh/{print $3}')"
+    if rpm -q openssh-server &>/dev/null; then
+        msg_ok "openssh-server instalado: $(rpm -q openssh-server)"
     else
         msg_warn "openssh-server NO instalado"
     fi
     echo ""
-    if systemctl is-active sshd &>/dev/null || systemctl is-active ssh &>/dev/null; then
+    if systemctl is-active sshd &>/dev/null; then
         msg_ok "Servicio: ACTIVO"
     else
         msg_warn "Servicio: INACTIVO"
@@ -36,20 +36,19 @@ ssh_instalar() {
     echo ""
     echo "=== Instalacion OpenSSH Server ==="
 
-    if dpkg -l | grep -qw openssh-server; then
+    if rpm -q openssh-server &>/dev/null; then
         msg_warn "Ya instalado."
         read -rp "  ¿Reinstalar? (s/n): " r
         [[ ! "$r" =~ ^[sS]$ ]] && return
     fi
 
-    apt-get update &>/dev/null
-    apt-get install -y openssh-server &>/dev/null \
+    dnf install -y openssh-server &>/dev/null \
         && msg_ok "openssh-server instalado." \
         || { msg_err "Error en instalacion."; pausar; return; }
 
-    systemctl enable ssh &>/dev/null
-    systemctl start ssh
-    systemctl is-active --quiet ssh \
+    systemctl enable sshd &>/dev/null
+    systemctl start sshd
+    systemctl is-active --quiet sshd \
         && msg_ok "Servicio activo y habilitado en el arranque." \
         || msg_err "El servicio no pudo iniciar."
     pausar
@@ -78,6 +77,13 @@ ssh_configurar() {
 
     msg_ok "Configuracion aplicada (puerto $puerto)."
     msg_warn "Reinicia el servicio para aplicar cambios."
+
+    # Ajustar firewall si firewalld esta activo
+    if systemctl is-active --quiet firewalld; then
+        firewall-cmd --permanent --add-port="${puerto}/tcp" &>/dev/null
+        firewall-cmd --reload &>/dev/null
+        msg_ok "Puerto $puerto abierto en firewalld."
+    fi
     pausar
 }
 
@@ -87,9 +93,9 @@ ssh_configurar() {
 ssh_reiniciar() {
     echo ""
     echo "Reiniciando SSH..."
-    systemctl restart ssh
+    systemctl restart sshd
     sleep 1
-    systemctl is-active --quiet ssh \
+    systemctl is-active --quiet sshd \
         && msg_ok "SSH activo." \
         || { msg_err "Fallo al reiniciar."; sshd -t 2>&1; }
     pausar

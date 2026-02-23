@@ -4,10 +4,10 @@
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
-source "$DIR/lib/common_functions.sh"
-source "$DIR/lib/ssh_functions.sh"
-source "$DIR/lib/dhcp_functions.sh"
-source "$DIR/lib/dns_functions.sh"
+source "$DIR/common-functions.sh"
+source "$DIR/ssh-functions.sh"
+source "/home/andre/menu-dhcp.sh"
+source "/home/andre/DnsLinux.sh"
 
 verificar_root
 
