@@ -3,10 +3,10 @@
 #   Set-ExecutionPolicy RemoteSigned -Scope Process
 #   .\main.ps1
 
-. "$PSScriptRoot\lib\common_functions.ps1"
-. "$PSScriptRoot\lib\ssh_functions.ps1"
-. "$PSScriptRoot\lib\dhcp_functions.ps1"
-. "$PSScriptRoot\lib\dns_functions.ps1"
+. "$PSScriptRoot\common-functions.ps1"
+. "$PSScriptRoot\ssh-functions.ps1"
+. "C:\script\menu-dhcp-win.ps1"
+. "C:\script\dns-Win.ps1"
 
 Verificar-Admin
 
