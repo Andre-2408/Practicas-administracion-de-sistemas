@@ -1,11 +1,8 @@
-# main.ps1 — Administrador de servicios
-# Uso: ejecutar PowerShell como Administrador
-#   Set-ExecutionPolicy RemoteSigned -Scope Process
-#   .\main.ps1
+
 
 . "$PSScriptRoot\common-functions.ps1"
 . "$PSScriptRoot\ssh-functions.ps1"
-. "C:\script\menu-dhcp-win.ps1"
+. "C:\script\menu-dhcp.ps1"
 . "C:\script\dns-Win.ps1"
 
 Verificar-Admin
