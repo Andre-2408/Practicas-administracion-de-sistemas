@@ -8,7 +8,7 @@ source "$DIR/common-functions.sh"
 source "$DIR/ssh-functions.sh"
 source "/home/andre/menu-dhcp.sh"
 source "/home/andre/DnsLinux.sh"
-source "$DIR/../../p5/AlmaLinux/ftp-linux.sh"
+source "/home/andre/ftp-linux.sh"
 
 verificar_root
 

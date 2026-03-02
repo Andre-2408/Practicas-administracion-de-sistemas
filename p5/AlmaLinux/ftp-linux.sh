@@ -327,6 +327,12 @@ ftp_configurar() {
     mkdir -p "$VSFTPD_USERCONF_DIR"
     touch "$VSFTPD_USERLIST"
 
+    # El usuario anonimo (ftp) debe estar en la lista blanca
+    if ! grep -q "^ftp$" "$VSFTPD_USERLIST" 2>/dev/null; then
+        echo "ftp" >> "$VSFTPD_USERLIST"
+        msg_ok "Usuario anonimo 'ftp' agregado a la lista blanca"
+    fi
+
     local conf
     conf=$(_ftp_ruta_conf)
 
