@@ -350,7 +350,11 @@ ftp_configurar() {
 # ── Usuarios locales ──────────────────────────────────────────────────────────
 local_enable=YES
 write_enable=YES
-local_umask=022
+# umask 002: los archivos creados tendran permisos rw-rw-r-- (664)
+# Esto permite que TODOS los miembros del mismo grupo puedan modificar
+# los archivos que creen otros miembros, sin importar quien los creo.
+local_umask=002
+file_open_mode=0664
 
 # ── Confinamiento de usuarios (chroot jail) ───────────────────────────────────
 # Cada usuario queda enjaulado en su local_root definido en user_config_dir.
@@ -613,29 +617,38 @@ ftp_cambiar_grupo() {
 
     local raiz="$FTP_USUARIOS/$usuario"
 
-    # Detectar grupo actual (reprobados o recursadores)
+    # Detectar grupo actual (dinamico desde FTP_GROUPS_FILE)
     local grupo_anterior=""
-    if id -Gn "$usuario" 2>/dev/null | grep -qw "$GRP_REPROBADOS"; then
-        grupo_anterior="$GRP_REPROBADOS"
-    elif id -Gn "$usuario" 2>/dev/null | grep -qw "$GRP_RECURSADORES"; then
-        grupo_anterior="$GRP_RECURSADORES"
+    local -a grupos_ftp
+    mapfile -t grupos_ftp < <(_ftp_grupos_disponibles)
+
+    for g in "${grupos_ftp[@]}"; do
+        if id -Gn "$usuario" 2>/dev/null | grep -qw "$g"; then
+            grupo_anterior="$g"
+            break
+        fi
+    done
+
+    if [[ -z "$grupo_anterior" ]]; then
+        msg_warn "El usuario '$usuario' no pertenece a ningun grupo FTP registrado."
     else
-        msg_err "El usuario '$usuario' no pertenece a '$GRP_REPROBADOS' ni '$GRP_RECURSADORES'."
+        msg_info "Grupo actual de '$usuario': $grupo_anterior"
     fi
 
-    msg_info "Grupo actual de '$usuario': $grupo_anterior"
-
-    # Solicitar nuevo grupo
+    # Solicitar nuevo grupo (dinamico)
     local nuevo_grupo
     while true; do
-        echo "  1) reprobados"
-        echo "  2) recursadores"
-        read -rp "  Nuevo grupo [1/2]: " opc
-        case "$opc" in
-            1) nuevo_grupo="$GRP_REPROBADOS";  break ;;
-            2) nuevo_grupo="$GRP_RECURSADORES"; break ;;
-            *) msg_warn "Opcion invalida." ;;
-        esac
+        echo "  Grupos disponibles:"
+        local gi
+        for gi in "${!grupos_ftp[@]}"; do
+            echo "    $((gi+1))) ${grupos_ftp[$gi]}"
+        done
+        read -rp "  Nuevo grupo [1-${#grupos_ftp[@]}]: " opc
+        if [[ "$opc" =~ ^[0-9]+$ ]] && (( opc >= 1 && opc <= ${#grupos_ftp[@]} )); then
+            nuevo_grupo="${grupos_ftp[$((opc-1))]}"
+            break
+        fi
+        msg_warn "Opcion invalida."
     done
 
     if [[ "$grupo_anterior" == "$nuevo_grupo" ]]; then
@@ -644,21 +657,23 @@ ftp_cambiar_grupo() {
         return 0
     fi
 
-    msg_info "Cambiando '$usuario': $grupo_anterior -> $nuevo_grupo ..."
+    msg_info "Cambiando '$usuario': ${grupo_anterior:-(ninguno)} -> $nuevo_grupo ..."
 
-    # 1. Desmontar y eliminar el directorio del grupo anterior
-    _ftp_eliminar_bind_mount "$raiz/$grupo_anterior"
-    rm -rf "${raiz:?}/$grupo_anterior"
+    # 1. Desmontar y eliminar el directorio del grupo anterior (si tenia)
+    if [[ -n "$grupo_anterior" ]]; then
+        _ftp_eliminar_bind_mount "$raiz/$grupo_anterior"
+        rm -rf "${raiz:?}/$grupo_anterior"
+        gpasswd -d "$usuario" "$grupo_anterior" &>/dev/null || true
+    fi
 
     # 2. Crear el directorio del nuevo grupo y su bind mount
     mkdir -p "$raiz/$nuevo_grupo"
     _ftp_agregar_bind_mount "$FTP_COMPARTIDO/$nuevo_grupo" "$raiz/$nuevo_grupo"
 
-    # 3. Actualizar membresia de grupos en el sistema
-    gpasswd -d "$usuario" "$grupo_anterior" &>/dev/null || true
+    # 3. Agregar al nuevo grupo en el sistema
     gpasswd -a "$usuario" "$nuevo_grupo"
 
-    msg_ok "Usuario '$usuario' movido de '$grupo_anterior' a '$nuevo_grupo'."
+    msg_ok "Usuario '$usuario' movido de '${grupo_anterior:-(ninguno)}' a '$nuevo_grupo'."
     msg_info "Directorio de grupo accesible: /$nuevo_grupo/"
     pausar
 }
@@ -704,6 +719,49 @@ ftp_reiniciar() {
     systemctl restart vsftpd
     systemctl status vsftpd --no-pager -l | head -8
     msg_ok "vsftpd reiniciado."
+    pausar
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. REPARAR PERMISOS DE ARCHIVOS EXISTENTES
+# Aplica permisos de escritura de grupo a todos los archivos y carpetas
+# ya creados en los directorios compartidos. Esto soluciona el caso en que
+# un usuario creo archivos con umask incorrecto y otros miembros del grupo
+# no pueden modificarlos.
+# ─────────────────────────────────────────────────────────────────────────────
+ftp_reparar_permisos() {
+    echo ""
+    echo "=== Reparar permisos de archivos existentes ==="
+    echo ""
+    msg_info "Aplicando permisos de grupo (g+rwX) en $FTP_COMPARTIDO ..."
+
+    # Directorios a reparar: general + todos los grupos registrados
+    local -a dirs_a_reparar=("$FTP_COMPARTIDO/general")
+    while IFS= read -r g; do
+        dirs_a_reparar+=("$FTP_COMPARTIDO/$g")
+    done < <(_ftp_grupos_disponibles)
+
+    for dir in "${dirs_a_reparar[@]}"; do
+        if [[ ! -d "$dir" ]]; then
+            msg_warn "Directorio no existe, omitiendo: $dir"
+            continue
+        fi
+
+        local grp
+        grp=$(stat -c '%G' "$dir" 2>/dev/null)
+
+        # g+rwX: escritura para grupo en archivos (w), ejecucion solo en directorios (X)
+        chmod -R g+rwX "$dir"
+        # Restablecer setgid bit en todos los subdirectorios para que
+        # los archivos nuevos hereden el grupo automaticamente
+        find "$dir" -type d -exec chmod g+s {} +
+
+        msg_ok "Reparado: $dir  (grupo: $grp)"
+    done
+
+    echo ""
+    msg_ok "Permisos reparados. Ahora todos los miembros del grupo pueden"
+    msg_info "leer y modificar los archivos existentes y los nuevos."
     pausar
 }
 
@@ -827,6 +885,7 @@ menu_ftp() {
         echo "  6. Listar usuarios FTP                      "
         echo "  7. Reiniciar vsftpd                         "
         echo "  8. Gestionar grupos FTP                     "
+        echo "  9. Reparar permisos de archivos existentes  "
         echo "  0. Salir                                    "
         echo "----------------------------------------------"
         read -rp "  Opcion: " opc
@@ -839,6 +898,7 @@ menu_ftp() {
             6) ftp_listar_usuarios ;;
             7) ftp_reiniciar ;;
             8) ftp_gestionar_grupos ;;
+            9) ftp_reparar_permisos ;;
             0) msg_info "Saliendo..."; break ;;
             *) msg_warn "Opcion no valida." ;;
         esac

@@ -149,6 +149,34 @@ function _FTP-AsignarPermiso {
     Set-Acl -Path $Ruta -AclObject $acl
 }
 
+# Aplicar permisos de grupo directamente en todos los archivos y subcarpetas
+# de la carpeta compartida, incluyendo los ya creados por otros usuarios.
+# Problema: cuando u1 crea un archivo, NTFS le asigna ACL propia sin el bit
+# de escritura de grupo, bloqueando a u2/u3 con error 550 en operaciones FTP.
+# Solucion: icacls /grant:r /T aplica Modify al grupo en CADA archivo/subcarpeta
+# existente sin borrar otros permisos.
+function _FTP-ForzarHerenciaGrupo {
+    param([string]$RutaGrupo, [string]$NombreGrupo)
+
+    if (-not (Test-Path $RutaGrupo)) { return }
+
+    # 1. Permiso en el directorio raiz del grupo con herencia activada
+    #    (OI) = ObjectInherit: archivos nuevos heredan
+    #    (CI) = ContainerInherit: subcarpetas nuevas heredan
+    _FTP-AsignarPermiso -Ruta $RutaGrupo -Identidad $NombreGrupo `
+                        -Derechos "Modify" -Herencia "ContainerInherit,ObjectInherit"
+
+    # 2. Aplicar Modify del grupo en TODOS los archivos/subcarpetas ya existentes.
+    #    /grant:r  = reemplaza el ACE del grupo (no acumula duplicados)
+    #    (OI)(CI)  = con herencia para nuevos objetos dentro de subcarpetas
+    #    (M)       = Modify
+    #    /T        = recursivo | /C = continuar en errores | /Q = silencioso
+    #    NOTA: NO se usa /reset porque eso borraria el permiso del paso 1.
+    $computer = $env:COMPUTERNAME
+    & icacls $RutaGrupo /grant:r "${computer}\${NombreGrupo}:(OI)(CI)(M)" /T /C /Q 2>&1 | Out-Null
+    Write-Inf "  Permisos '$NombreGrupo:Modify' aplicados recursivamente en: $RutaGrupo"
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. VERIFICAR ESTADO DEL SERVIDOR FTP
 # ─────────────────────────────────────────────────────────────────────────────
@@ -354,12 +382,13 @@ function FTP-Configurar {
     # ── 3.4 Permisos NTFS en directorios compartidos ──────────────────────────
     Write-Inf "Configurando permisos NTFS..."
 
-    _FTP-AsignarPermiso -Ruta "$FTP_COMPARTIDO\general" `
-                        -Identidad $GRP_FTP -Derechos "Modify"
+    # Permisos con herencia ContainerInherit+ObjectInherit: tanto carpetas hijas
+    # como archivos nuevos heredaran automaticamente el permiso Modify del grupo.
+    # _FTP-ForzarHerenciaGrupo tambien resetea la herencia en archivos existentes.
+    _FTP-ForzarHerenciaGrupo -RutaGrupo "$FTP_COMPARTIDO\general" -NombreGrupo $GRP_FTP
 
     foreach ($grp in @(_FTP-GruposDisponibles)) {
-        _FTP-AsignarPermiso -Ruta "$FTP_COMPARTIDO\$grp" `
-                            -Identidad $grp -Derechos "Modify"
+        _FTP-ForzarHerenciaGrupo -RutaGrupo "$FTP_COMPARTIDO\$grp" -NombreGrupo $grp
     }
 
     Write-OK "Permisos NTFS configurados"
@@ -886,6 +915,12 @@ function FTP-CambiarGrupo {
     # 3. Agregar al nuevo grupo
     Add-LocalGroupMember -Group $nuevoGrupo -Member $usuario -ErrorAction SilentlyContinue
 
+    # 4. Re-aplicar herencia NTFS en la carpeta del nuevo grupo
+    #    Esto garantiza que el usuario (y todos los del grupo) puedan
+    #    modificar los archivos existentes y los que se creen en el futuro.
+    _FTP-ForzarHerenciaGrupo -RutaGrupo "$FTP_COMPARTIDO\$nuevoGrupo" -NombreGrupo $nuevoGrupo
+    Write-Inf "  Herencia NTFS aplicada en carpeta del nuevo grupo '$nuevoGrupo'"
+
     Write-OK "Usuario '$usuario' movido de '$grupoAnterior' a '$nuevoGrupo'."
     Write-Inf "Directorio de grupo accesible ahora: \$nuevoGrupo\"
     Pausar
@@ -1055,7 +1090,9 @@ function _FTP-AgregarGrupoFTP {
 
     $dirGrupo = "$FTP_COMPARTIDO\$nombre"
     _FTP-NuevoDir $dirGrupo
-    _FTP-AsignarPermiso -Ruta $dirGrupo -Identidad $nombre -Derechos "Modify"
+    # Usar ForzarHerencia para que los archivos que creen los miembros del grupo
+    # sean editables por TODOS los demas miembros automaticamente.
+    _FTP-ForzarHerenciaGrupo -RutaGrupo $dirGrupo -NombreGrupo $nombre
     Write-OK "Directorio compartido creado: $dirGrupo"
 
     $dirFile = Split-Path $FTP_GROUPS_FILE
@@ -1125,6 +1162,42 @@ function FTP-GestionarGrupos {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 10. REPARAR PERMISOS DE ARCHIVOS EXISTENTES
+# Aplica herencia NTFS correcta a todos los archivos y subcarpetas ya creados
+# en los directorios compartidos. Soluciona el caso en que un usuario creo
+# archivos y otros miembros del grupo no pueden modificarlos.
+# ─────────────────────────────────────────────────────────────────────────────
+function FTP-RepararPermisos {
+    Write-Host ""
+    Write-Host "  === Reparar permisos de archivos existentes ===" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Inf "Restableciendo herencia NTFS en directorios compartidos..."
+    Write-Host ""
+
+    # general: accesible por todos los usuarios FTP (grupo ftpusers)
+    if (Test-Path "$FTP_COMPARTIDO\general") {
+        _FTP-ForzarHerenciaGrupo -RutaGrupo "$FTP_COMPARTIDO\general" -NombreGrupo $GRP_FTP
+        Write-OK "Reparado: $FTP_COMPARTIDO\general  (grupo: $GRP_FTP)"
+    }
+
+    # Cada grupo registrado en ftp_groups.txt
+    foreach ($grp in @(_FTP-GruposDisponibles)) {
+        $rutaGrp = "$FTP_COMPARTIDO\$grp"
+        if (Test-Path $rutaGrp) {
+            _FTP-ForzarHerenciaGrupo -RutaGrupo $rutaGrp -NombreGrupo $grp
+            Write-OK "Reparado: $rutaGrp  (grupo: $grp)"
+        } else {
+            Write-Wrn "Directorio no existe, omitiendo: $rutaGrp"
+        }
+    }
+
+    Write-Host ""
+    Write-OK "Permisos reparados. Todos los miembros de cada grupo ahora pueden"
+    Write-Inf "leer y modificar los archivos existentes y los que se creen en el futuro."
+    Pausar
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # MENU DEL MODULO FTP
 # ─────────────────────────────────────────────────────────────────────────────
 function Menu-FTP {
@@ -1144,6 +1217,7 @@ function Menu-FTP {
         Write-Host "    7. Reiniciar servicio FTP               "
         Write-Host "    8. Gestionar grupos FTP                 "
         Write-Host "    9. Eliminar usuario FTP                 "
+        Write-Host "   10. Reparar permisos de archivos         "
         Write-Host "    0. Salir                                "
         Write-Host "  =========================================="
         Write-Host ""
@@ -1151,16 +1225,17 @@ function Menu-FTP {
         $opc = Read-Host "  Opcion"
 
         switch ($opc) {
-            "1" { FTP-Verificar }
-            "2" { FTP-Instalar }
-            "3" { FTP-Configurar }
-            "4" { FTP-GestionarUsuarios }
-            "5" { FTP-CambiarGrupo }
-            "6" { FTP-ListarUsuarios }
-            "7" { FTP-Reiniciar }
-            "8" { FTP-GestionarGrupos }
-            "9" { FTP-EliminarUsuario }
-            "0" { Write-Inf "Saliendo..."; return }
+            "1"  { FTP-Verificar }
+            "2"  { FTP-Instalar }
+            "3"  { FTP-Configurar }
+            "4"  { FTP-GestionarUsuarios }
+            "5"  { FTP-CambiarGrupo }
+            "6"  { FTP-ListarUsuarios }
+            "7"  { FTP-Reiniciar }
+            "8"  { FTP-GestionarGrupos }
+            "9"  { FTP-EliminarUsuario }
+            "10" { FTP-RepararPermisos }
+            "0"  { Write-Inf "Saliendo..."; return }
             default { Write-Wrn "Opcion no valida." }
         }
     }
