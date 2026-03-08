@@ -9,6 +9,7 @@ source "$DIR/ssh-functions.sh"
 source "/home/andre/menu-dhcp.sh"
 source "/home/andre/DnsLinux.sh"
 source "/home/andre/ftp-linux.sh"
+source "/home/andre/http_functions.sh"
 
 verificar_root
 
@@ -117,6 +118,7 @@ while true; do
     echo "2) DHCP - Servidor DHCP"
     echo "3) DNS  - Servidor DNS"
     echo "4) FTP  - Servidor FTP"
+    echo "5) HTTP - Servidor Web"
     echo "0) Salir"
     echo "--------------------------------"
     read -rp "> " opt
@@ -125,6 +127,7 @@ while true; do
         2) menu_dhcp ;;
         3) menu_dns  ;;
         4) menu_ftp  ;;
+        5) menu_http ;;
         0) echo "Saliendo..."; exit 0 ;;
         *) echo "Opcion invalida"; sleep 1 ;;
     esac
