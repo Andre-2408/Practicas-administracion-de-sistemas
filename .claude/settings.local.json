@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(cp \"D:/Antigravity/herman/p7/Linux_p7/$f\" \"D:/Antigravity/herman/p7/Linux/$f\")",
+      "Bash(done)",
+      "Bash(python -c \"import pdfplumber; pdf = pdfplumber.open\\(r''''C:\\\\Users\\\\ikerl\\\\Downloads\\\\Práctica7.pdf''''\\); [print\\(f''''=== PAGE {i+1} ===\\\\n{p.extract_text\\(\\)}''''\\) for i,p in enumerate\\(pdf.pages\\)]\")",
+      "Bash(py -3 -c \"import pdfplumber; pdf = pdfplumber.open\\(r''''C:\\\\Users\\\\ikerl\\\\Downloads\\\\Práctica7.pdf''''\\); [print\\(f''''=== PAGE {i+1} ===\\\\n{p.extract_text\\(\\)}''''\\) for i,p in enumerate\\(pdf.pages\\)]\")",
+      "Bash(where python3:*)",
+      "Bash(where python:*)",
+      "Bash(where py:*)",
+      "Read(//usr/**)",
+      "Read(//usr/local/**)",
+      "Bash(powershell -Command \"Add-Type -AssemblyName System.Web; [System.Web.HttpUtility]::UrlEncode\\(''C:\\\\Users\\\\ikerl\\\\Downloads\\\\Práctica7.pdf''\\)\")",
+      "Bash(cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -Command \"\"$pdf = [System.IO.File]::ReadAllBytes\\(''C:\\\\Users\\\\ikerl\\\\Downloads\\\\Practica7.pdf''\\); Write-Host $pdf.Length\"\"\")",
+      "Bash(cmd /c \"dir \"\"C:\\\\Users\\\\ikerl\\\\Downloads\\\\Pr*\"\"\")",
+      "Read(//c/Users/ikerl/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/b6144e1a-6ec7-4b7a-a922-b137ccad3a31/d5e897b1-ef9f-4343-a85b-4a8d7f6d9466/skills/pdf/**)",
+      "Bash(python extract.py \"C:\\\\Users\\\\ikerl\\\\Downloads\\\\Práctica7.pdf\")",
+      "Bash(pandoc \"C:\\\\Users\\\\ikerl\\\\Downloads\\\\Práctica7.docx\" -t plain)",
+      "Read(//c/Users/ikerl/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/b6144e1a-6ec7-4b7a-a922-b137ccad3a31/d5e897b1-ef9f-4343-a85b-4a8d7f6d9466/skills/docx/**)",
+      "Bash(python scripts/office/unpack.py \"C:\\\\Users\\\\ikerl\\\\Downloads\\\\Práctica7.docx\" \"C:\\\\Users\\\\ikerl\\\\Downloads\\\\practica7_unpacked\")",
+      "Bash(powershell -NoProfile -Command \"Expand-Archive -Path ''C:\\\\Users\\\\ikerl\\\\Downloads\\\\Práctica7.docx'' -DestinationPath ''C:\\\\Users\\\\ikerl\\\\Downloads\\\\practica7_unpacked'' -Force; Write-Host ''Done''\")",
+      "Bash(cd /tmp)",
+      "Bash(mkdir -p v1_extract)",
+      "Bash(unzip -o \"C:/Users/ikerl/Downloads/v1.zip\" -d /tmp/v1_extract)",
+      "Read(//tmp/**)",
+      "Read(//d/tmp/v2_build/**)",
+      "Bash(zip -r \"C:/Users/ikerl/Downloads/v2.zip\" v2/)",
+      "Bash(python3 -c \":*)",
+      "Bash(powershell.exe -Command \":*)",
+      "Bash(powershell.exe -Command \"Get-Item ''C:/Users/ikerl/Downloads/v2.zip'' | Select-Object Name, Length, LastWriteTime\")"
+    ]
+  }
+}
