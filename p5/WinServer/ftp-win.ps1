@@ -1245,7 +1245,5 @@ function Menu-FTP {
 # PUNTO DE ENTRADA
 # Solo se ejecuta si el script se llama directamente (no si es incluido)
 # ─────────────────────────────────────────────────────────────────────────────
-if ($MyInvocation.ScriptName -eq $PSCommandPath) {
-    _FTP-VerificarAdmin
-    Menu-FTP
-}
+_FTP-VerificarAdmin
+Menu-FTP
