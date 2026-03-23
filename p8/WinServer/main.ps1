@@ -171,19 +171,29 @@ function _estado_gpo_cierre {
     } catch { return $false }
 }
 
+function _estado_clientes_menu {
+    try {
+        $linux = $null -ne (Get-LocalUser -Name $Script:AD_CLIENTE_LINUX -ErrorAction SilentlyContinue)
+        $win   = (-not [string]::IsNullOrWhiteSpace($Script:AD_CLIENTE_WIN)) -and
+                 ($null -ne (Get-LocalUser -Name $Script:AD_CLIENTE_WIN -ErrorAction SilentlyContinue))
+        return ($linux -or $win)
+    } catch { return $false }
+}
+
 # ------------------------------------------------------------
 # Refrescar cache de estados
 # ------------------------------------------------------------
 
 function _refrescar_estado {
-    $Script:_cDominio  = _estado_ad_dominio
-    $Script:_cOUs      = _estado_ous
-    $Script:_cUsuarios = _estado_usuarios
-    $Script:_cHorarios = _estado_horarios
-    $Script:_cFSRM     = _estado_fsrm
-    $Script:_cCuotas   = _estado_fsrm_cuotas
-    $Script:_cAppL     = _estado_applocker
+    $Script:_cDominio   = _estado_ad_dominio
+    $Script:_cOUs       = _estado_ous
+    $Script:_cUsuarios  = _estado_usuarios
+    $Script:_cHorarios  = _estado_horarios
+    $Script:_cFSRM      = _estado_fsrm
+    $Script:_cCuotas    = _estado_fsrm_cuotas
+    $Script:_cAppL      = _estado_applocker
     $Script:_cGPOCierre = _estado_gpo_cierre
+    $Script:_cClientes  = _estado_clientes_menu
 }
 
 # ------------------------------------------------------------
@@ -201,6 +211,7 @@ function _dibujar_menu {
     $sCuot  = _icono_estado $Script:_cCuotas
     $sAppL  = _icono_estado $Script:_cAppL
     $sGPO   = _icono_estado $Script:_cGPOCierre
+    $sCli   = _icono_estado $Script:_cClientes
 
     Write-Host ""
     Write-Host "  =========================================================="
@@ -227,6 +238,10 @@ function _dibujar_menu {
     Write-Host ""
     Write-Host "  -- Politica de Cierre de Sesion ------------------------------"
     Write-Host "  5) $sGPO  GPO: Forzar cierre de sesion al vencer el horario"
+    Write-Host ""
+    Write-Host "  -- Clientes Externos (Linux / Windows) -----------------------"
+    Write-Host "  6) $sCli  Gestionar clientes: horarios, cuotas, disco, AppLocker"
+    Write-Host "             Linux: $Script:AD_CLIENTE_LINUX  |  Windows: $(if ([string]::IsNullOrWhiteSpace($Script:AD_CLIENTE_WIN)) { '(sin configurar)' } else { $Script:AD_CLIENTE_WIN })"
     Write-Host ""
     Write-Host "  -- Utiles ----------------------------------------------------"
     Write-Host "  a)  Ejecutar TODOS los pasos en orden (1-5)"
@@ -346,11 +361,12 @@ function main_menu {
         $op = Read-Host "  Opcion"
 
         switch ($op.Trim().ToLower()) {
-            "1" { ad_estructura_completa;              _refrescar_estado }
-            "2" { horario_configurar_completo;         _refrescar_estado }
-            "3" { fsrm_configurar_completo;            _refrescar_estado }
-            "4" { applocker_configurar_completo;       _refrescar_estado }
+            "1" { ad_estructura_completa;                _refrescar_estado }
+            "2" { horario_configurar_completo;           _refrescar_estado }
+            "3" { fsrm_configurar_completo;              _refrescar_estado }
+            "4" { applocker_configurar_completo;         _refrescar_estado }
             "5" { gpo_configurar_cierre_sesion_completo; _refrescar_estado }
+            "6" { clientes_menu_principal;               _refrescar_estado }
             "a" { _todos_los_pasos }
             "v" { _verificacion_general }
             "r" { _refrescar_estado }
@@ -379,7 +395,8 @@ foreach ($mod in @(
     "modules\02-horario-acceso.ps1",
     "modules\03-fsrm-cuotas.ps1",
     "modules\04-applocker.ps1",
-    "modules\05-gpo-cierre-sesion.ps1"
+    "modules\05-gpo-cierre-sesion.ps1",
+    "modules\06-clientes.ps1"
 )) {
     $ruta = Join-Path $Script:P8_DIR $mod
     if (Test-Path $ruta) { . $ruta }

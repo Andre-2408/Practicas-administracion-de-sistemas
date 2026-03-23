@@ -141,11 +141,9 @@ function applocker_crear_gpo {
 
     # Generar GUIDs para cada regla
     $idAdmins          = [System.Guid]::NewGuid().ToString().ToUpper()
-    $idCuatesWindir    = [System.Guid]::NewGuid().ToString().ToUpper()
-    $idCuatesProgFiles = [System.Guid]::NewGuid().ToString().ToUpper()
+    $idTodosWindir     = [System.Guid]::NewGuid().ToString().ToUpper()
+    $idTodosProgFiles  = [System.Guid]::NewGuid().ToString().ToUpper()
     $idNoCuatesDeny    = [System.Guid]::NewGuid().ToString().ToUpper()
-    $idNoCuatesWindir  = [System.Guid]::NewGuid().ToString().ToUpper()
-    $idNoCuatesProgF   = [System.Guid]::NewGuid().ToString().ToUpper()
 
     # Construir XML completo de la politica AppLocker
     $xmlPolicy = @"
@@ -160,22 +158,24 @@ $(_applocker_xml_regla_ruta -Id $idAdmins `
     -Accion       "Allow" `
     -Ruta         "*")
 
-    <!-- CUATES: puede ejecutar notepad (permitir todo en %WINDIR%) -->
-$(_applocker_xml_regla_ruta -Id $idCuatesWindir `
-    -Nombre       "Cuates-Permitir-Windows" `
-    -Descripcion  "Cuates pueden ejecutar aplicaciones de Windows (incluye Bloc de Notas)" `
-    -SID          $sidCuates `
+    <!-- Todos: pueden ejecutar aplicaciones estandar de Windows y archivos instalados -->
+    <!-- Esto garantiza que clientes (Linux/Windows) no sean bloqueados por esta politica -->
+$(_applocker_xml_regla_ruta -Id $idTodosWindir `
+    -Nombre       "Todos-Permitir-Windows" `
+    -Descripcion  "Todos los usuarios pueden ejecutar aplicaciones de Windows (incluye Bloc de Notas salvo NoCuates)" `
+    -SID          $sidTodos `
     -Accion       "Allow" `
     -Ruta         "%WINDIR%\*")
 
-$(_applocker_xml_regla_ruta -Id $idCuatesProgFiles `
-    -Nombre       "Cuates-Permitir-ProgramFiles" `
-    -Descripcion  "Cuates pueden ejecutar aplicaciones instaladas" `
-    -SID          $sidCuates `
+$(_applocker_xml_regla_ruta -Id $idTodosProgFiles `
+    -Nombre       "Todos-Permitir-ProgramFiles" `
+    -Descripcion  "Todos los usuarios pueden ejecutar aplicaciones instaladas" `
+    -SID          $sidTodos `
     -Accion       "Allow" `
     -Ruta         "%PROGRAMFILES%\*")
 
     <!-- NOCUATES: bloquear notepad.exe por HASH (no se puede evadir renombrando) -->
+    <!-- Deny tiene precedencia sobre el Allow de Todos, solo afecta a miembros de NoCuates -->
 $(_applocker_xml_regla_hash -Id $idNoCuatesDeny `
     -Nombre        "NoCuates-Bloquear-Notepad-Hash" `
     -Descripcion   "Bloqueo de Bloc de Notas por hash SHA256 para evitar bypass por renombrado" `
@@ -183,21 +183,6 @@ $(_applocker_xml_regla_hash -Id $idNoCuatesDeny `
     -HashData      $InfoNotepad.HashData `
     -NombreArchivo $InfoNotepad.Nombre `
     -Tamano        $InfoNotepad.Tamano)
-
-    <!-- NOCUATES: permitir el resto de Windows (excepto notepad, bloqueado por hash) -->
-$(_applocker_xml_regla_ruta -Id $idNoCuatesWindir `
-    -Nombre       "NoCuates-Permitir-Windows" `
-    -Descripcion  "NoCuates pueden ejecutar otras aplicaciones de Windows (excepto Bloc de Notas)" `
-    -SID          $sidNoCuates `
-    -Accion       "Allow" `
-    -Ruta         "%WINDIR%\*")
-
-$(_applocker_xml_regla_ruta -Id $idNoCuatesProgF `
-    -Nombre       "NoCuates-Permitir-ProgramFiles" `
-    -Descripcion  "NoCuates pueden ejecutar aplicaciones instaladas" `
-    -SID          $sidNoCuates `
-    -Accion       "Allow" `
-    -Ruta         "%PROGRAMFILES%\*")
 
   </RuleCollection>
 </AppLockerPolicy>
@@ -229,12 +214,10 @@ $(_applocker_xml_regla_ruta -Id $idNoCuatesProgF `
 
     # Registrar cada regla individual
     $reglas = @(
-        @{ Id = $idAdmins;          Xml = (_applocker_xml_regla_ruta -Id $idAdmins -Nombre "Permitir-Administradores" -Descripcion "" -SID $sidAdmins -Accion "Allow" -Ruta "*") },
-        @{ Id = $idCuatesWindir;    Xml = (_applocker_xml_regla_ruta -Id $idCuatesWindir -Nombre "Cuates-Permitir-Windows" -Descripcion "" -SID $sidCuates -Accion "Allow" -Ruta "%WINDIR%\*") },
-        @{ Id = $idCuatesProgFiles; Xml = (_applocker_xml_regla_ruta -Id $idCuatesProgFiles -Nombre "Cuates-Permitir-ProgramFiles" -Descripcion "" -SID $sidCuates -Accion "Allow" -Ruta "%PROGRAMFILES%\*") },
-        @{ Id = $idNoCuatesDeny;    Xml = (_applocker_xml_regla_hash -Id $idNoCuatesDeny -Nombre "NoCuates-Bloquear-Notepad-Hash" -Descripcion "Hash SHA256" -SID $sidNoCuates -HashData $InfoNotepad.HashData -NombreArchivo $InfoNotepad.Nombre -Tamano $InfoNotepad.Tamano) },
-        @{ Id = $idNoCuatesWindir;  Xml = (_applocker_xml_regla_ruta -Id $idNoCuatesWindir -Nombre "NoCuates-Permitir-Windows" -Descripcion "" -SID $sidNoCuates -Accion "Allow" -Ruta "%WINDIR%\*") },
-        @{ Id = $idNoCuatesProgF;   Xml = (_applocker_xml_regla_ruta -Id $idNoCuatesProgF -Nombre "NoCuates-Permitir-ProgramFiles" -Descripcion "" -SID $sidNoCuates -Accion "Allow" -Ruta "%PROGRAMFILES%\*") }
+        @{ Id = $idAdmins;         Xml = (_applocker_xml_regla_ruta -Id $idAdmins -Nombre "Permitir-Administradores" -Descripcion "" -SID $sidAdmins -Accion "Allow" -Ruta "*") },
+        @{ Id = $idTodosWindir;    Xml = (_applocker_xml_regla_ruta -Id $idTodosWindir -Nombre "Todos-Permitir-Windows" -Descripcion "" -SID $sidTodos -Accion "Allow" -Ruta "%WINDIR%\*") },
+        @{ Id = $idTodosProgFiles; Xml = (_applocker_xml_regla_ruta -Id $idTodosProgFiles -Nombre "Todos-Permitir-ProgramFiles" -Descripcion "" -SID $sidTodos -Accion "Allow" -Ruta "%PROGRAMFILES%\*") },
+        @{ Id = $idNoCuatesDeny;   Xml = (_applocker_xml_regla_hash -Id $idNoCuatesDeny -Nombre "NoCuates-Bloquear-Notepad-Hash" -Descripcion "Hash SHA256" -SID $sidNoCuates -HashData $InfoNotepad.HashData -NombreArchivo $InfoNotepad.Nombre -Tamano $InfoNotepad.Tamano) }
     )
 
     foreach ($regla in $reglas) {
@@ -316,9 +299,10 @@ function applocker_configurar_completo {
 
     Write-Host ""
     Write-Host "  Reglas a configurar:"
-    Write-Host "    Cuates   : Bloc de Notas PERMITIDO (regla de ruta %WINDIR%)"
+    Write-Host "    Todos    : %WINDIR% y %PROGRAMFILES% PERMITIDOS (no bloquea clientes)"
     Write-Host "    NoCuates : Bloc de Notas BLOQUEADO por hash SHA256"
-    Write-Host "               (el bloqueo persiste aunque se renombre el .exe)"
+    Write-Host "               (Deny tiene precedencia; el bloqueo persiste aunque se renombre el .exe)"
+    Write-Host "    Linux/Win client: NO afectados por esta politica"
     Write-Host ""
     draw_line
     Write-Host ""

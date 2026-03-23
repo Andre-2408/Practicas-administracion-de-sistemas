@@ -62,6 +62,16 @@ $Script:AD_FSRM_EXTENSIONES_BLOQUEADAS = @(
 )
 
 # ------------------------------------------------------------
+# Clientes externos (Linux / Windows)
+# ------------------------------------------------------------
+
+$Script:AD_CLIENTES_DIR      = "C:\Clientes"     # Raiz de directorios por cliente
+$Script:AD_CLIENTES_SHARE    = "Clientes"         # Nombre del share SMB
+$Script:AD_CLIENTE_LINUX     = "andre"            # Usuario local para cliente Linux
+$Script:AD_CLIENTE_WIN       = ""                 # Usuario cliente Windows (se pide en el menu)
+$Script:AD_CUOTA_CLIENTE_MB  = 50                 # Cuota por defecto en MB para clientes
+
+# ------------------------------------------------------------
 # Configuracion de AppLocker
 # ------------------------------------------------------------
 
