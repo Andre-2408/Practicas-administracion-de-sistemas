@@ -1,0 +1,11 @@
+Nombre,NombrePropio,Apellido,Usuario,Contrasena,Departamento,Email
+Juan Perez,Juan,Perez,jperez,P@ssw0rd.01,Cuates,jperez@p8.local
+Maria Lopez,Maria,Lopez,mlopez,P@ssw0rd.02,Cuates,mlopez@p8.local
+Carlos Torres,Carlos,Torres,ctorres,P@ssw0rd.03,Cuates,ctorres@p8.local
+Ana Ramirez,Ana,Ramirez,aramirez,P@ssw0rd.04,Cuates,aramirez@p8.local
+Luis Gutierrez,Luis,Gutierrez,lgutierrez,P@ssw0rd.05,Cuates,lgutierrez@p8.local
+Rosa Martinez,Rosa,Martinez,rmartinez,P@ssw0rd.06,NoCuates,rmartinez@p8.local
+Pedro Sanchez,Pedro,Sanchez,psanchez,P@ssw0rd.07,NoCuates,psanchez@p8.local
+Elena Flores,Elena,Flores,eflores,P@ssw0rd.08,NoCuates,eflores@p8.local
+Diego Morales,Diego,Morales,dmorales,P@ssw0rd.09,NoCuates,dmorales@p8.local
+Sofia Reyes,Sofia,Reyes,sreyes,P@ssw0rd.10,NoCuates,sreyes@p8.local

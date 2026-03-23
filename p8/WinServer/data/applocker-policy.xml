@@ -1,0 +1,47 @@
+<AppLockerPolicy Version="1">
+  <RuleCollection Type="Exe" EnforcementMode="Enabled">
+
+    <!-- Administradores: acceso completo -->
+    <FilePathRule Id="{DDCFC8F4-1E84-445E-B6F0-92CED19045D0}" Name="Permitir-Administradores" Description="Administradores pueden ejecutar cualquier archivo" UserOrGroupSid="S-1-5-32-544" Action="Allow">
+      <Conditions>
+        <FilePathCondition Path="*" />
+      </Conditions>
+    </FilePathRule>
+
+    <!-- CUATES: puede ejecutar notepad (permitir todo en %WINDIR%) -->
+    <FilePathRule Id="{2588B749-56EA-44C6-AC2B-D5B9ACB72968}" Name="Cuates-Permitir-Windows" Description="Cuates pueden ejecutar aplicaciones de Windows (incluye Bloc de Notas)" UserOrGroupSid="S-1-5-21-3297531085-3403189323-1685868593-1103" Action="Allow">
+      <Conditions>
+        <FilePathCondition Path="%WINDIR%\*" />
+      </Conditions>
+    </FilePathRule>
+
+    <FilePathRule Id="{64976F7B-4386-4B3B-8706-22B63954D674}" Name="Cuates-Permitir-ProgramFiles" Description="Cuates pueden ejecutar aplicaciones instaladas" UserOrGroupSid="S-1-5-21-3297531085-3403189323-1685868593-1103" Action="Allow">
+      <Conditions>
+        <FilePathCondition Path="%PROGRAMFILES%\*" />
+      </Conditions>
+    </FilePathRule>
+
+    <!-- NOCUATES: bloquear notepad.exe por HASH (no se puede evadir renombrando) -->
+    <FileHashRule Id="{E508B797-036B-46CB-9484-A08B80CA7B0C}" Name="NoCuates-Bloquear-Notepad-Hash" Description="Bloqueo de Bloc de Notas por hash SHA256 para evitar bypass por renombrado" UserOrGroupSid="S-1-5-21-3297531085-3403189323-1685868593-1104" Action="Deny">
+      <Conditions>
+        <FileHashCondition>
+          <FileHash Type="SHA256" Data="0xB65079972E88691FE19B5D4D5EB3159F6CD627FB6C4F09AE9B9DF959330082DF" SourceFileName="notepad.exe" SourceFileLength="225280" />
+        </FileHashCondition>
+      </Conditions>
+    </FileHashRule>
+
+    <!-- NOCUATES: permitir el resto de Windows (excepto notepad, bloqueado por hash) -->
+    <FilePathRule Id="{63B64899-6681-4381-9B1D-EA738B9B12DE}" Name="NoCuates-Permitir-Windows" Description="NoCuates pueden ejecutar otras aplicaciones de Windows (excepto Bloc de Notas)" UserOrGroupSid="S-1-5-21-3297531085-3403189323-1685868593-1104" Action="Allow">
+      <Conditions>
+        <FilePathCondition Path="%WINDIR%\*" />
+      </Conditions>
+    </FilePathRule>
+
+    <FilePathRule Id="{3E1E17ED-980B-4E7C-855E-816996C036F9}" Name="NoCuates-Permitir-ProgramFiles" Description="NoCuates pueden ejecutar aplicaciones instaladas" UserOrGroupSid="S-1-5-21-3297531085-3403189323-1685868593-1104" Action="Allow">
+      <Conditions>
+        <FilePathCondition Path="%PROGRAMFILES%\*" />
+      </Conditions>
+    </FilePathRule>
+
+  </RuleCollection>
+</AppLockerPolicy>
