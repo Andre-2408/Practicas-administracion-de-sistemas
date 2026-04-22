@@ -29,7 +29,17 @@
       "Bash(zip -r \"C:/Users/ikerl/Downloads/v2.zip\" v2/)",
       "Bash(python3 -c \":*)",
       "Bash(powershell.exe -Command \":*)",
-      "Bash(powershell.exe -Command \"Get-Item ''C:/Users/ikerl/Downloads/v2.zip'' | Select-Object Name, Length, LastWriteTime\")"
+      "Bash(powershell.exe -Command \"Get-Item ''C:/Users/ikerl/Downloads/v2.zip'' | Select-Object Name, Length, LastWriteTime\")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/YuckierOlive370/Tarea8GCC/main/FunCliente.ps1\")",
+      "Bash(find /d/Antigravity/herman -type f \\\\\\(-name *.ps1 -o -name *.sh -o -name *.c -o -name *.h -o -name *.cpp -o -name *.py -o -name *.md -o -name *.txt -o -name *.json \\\\\\))",
+      "Bash(curl -s \"https://raw.githubusercontent.com/YuckierOlive370/Tarea8GCC/main/FunCliente.sh\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/YuckierOlive370/Tarea8GCC/main/FunSrv.ps1\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/YuckierOlive370/Tarea8GCC/main/MenuCliente.ps1\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/YuckierOlive370/Tarea8GCC/main/MenuCliente.sh\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/YuckierOlive370/Tarea8GCC/main/MenuSrv.ps1\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/YuckierOlive370/Tarea8GCC/main/pruebas.ps1\")"
     ]
   }
 }
